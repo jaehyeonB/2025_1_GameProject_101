@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Runtime.InteropServices.WindowsRuntime;
 using UnityEngine;
 
 public class DragDrop : MonoBehaviour                   //Ä«µå µå·¡±× & µå·Ó Ã³¸®¸¦ À§ÇÑ Å¬·¡½º
@@ -45,11 +46,77 @@ public class DragDrop : MonoBehaviour                   //Ä«µå µå·¡±× & µå·Ó Ã³¸
         isDragging = false;
         GetComponent<SpriteRenderer>().sortingOrder = 1;
 
-        ReturnToOriginalPosition();
+        if (gameManager == null)                        //¸Å´ÏÀú°¡ ¾øÀ¸¸é ÇÔ¼ö¸¦ Á¾·áÇÑ´Ù
+        {
+            ReturnToOriginalPosition();
+            return;
+        }
+
+        bool wasInMergeArea = startParent == gameManager.mergeArea;                 //ÇöÀç Ä«µå°¡ ¾î´À ¿µ¿ª¿¡¼­ ¿Ô´ÂÁö È®ÀÎ
+
+        if(IsOverArea(gameManager.handArea))                                        //¼ÕÆÐ ¿µ¿ª À§¿¡ Ä«µå¸¦ ³õ¾Ò´ÂÁö È®ÀÎ
+        {
+            Debug.Log("¼ÕÆÐ ¿µ¿ªÀ¸·Î ÀÌµ¿");
+
+            if(wasInMergeArea)                                                      //¸ÓÁö ¿µ¿ª¿¡¼­ ¿Ô´Ù¸é MoveToHand ÇÔ¼ö È£Ãâ
+            {
+                for(int i = 0; i < gameManager.mergeCount; i++)                     //Ä«µå¸¦ ¸ÓÁö ¿µ¿ª¿¡¼­ Á¦°ÅÇÏ°í ¼ÕÆÐ·Î ÀÌµ¿
+                {
+                    if (gameManager.mergeCards[i] == gameObject)                    //ÇÚµå ¹è¿­°ú ³»°¡ ¸¶¿ì½º ¾÷ÇÏ´Â ¿ÀºêÁ§Æ®¿Í °°Àº °æ¿ì
+                    {
+                        for(int j = 0; j < gameManager.mergeCount -1; j++)
+                        {
+                            gameManager.mergeCards[j] = gameManager.mergeCards[j + 1];      //ÇØ´ç Ä«µå¸¦ Á¦°ÅÇÏ°í ¹è¿­ µÚ¿¡¼­ ¾ÕÀ¸·Î ÇÑÄ­¾¿ ÀÌµ¿
+                        }
+                        gameManager.mergeCards[gameManager.mergeCount - 1] = null;          //¸Ç µÚ¿¡ Ä«µå¸¦ null ·Î ¼³Á¤
+                        gameManager.mergeCount--;                                   //Ä«µå ¼ö¸¦ ÁÙÀÎ´Ù
+
+                        transform.SetParent(gameManager.handArea);                  //¼ÕÆÐ¿¡ Ä«µå Ãß°¡
+                        gameManager.handCards[gameManager.handCount] = gameObject;
+                        gameManager.handCount++;
+
+                        gameManager.ArrangeHand();                                  //¿µ¿ª Á¤·Ä
+                        gameManager.ArrangeMerge();
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                gameManager.ArrangeHand();                                          //
+            }
+        }
+        else if(IsOverArea(gameManager.mergeArea))                                  //¸ÓÁö ¿µ¿ª À§¿¡ Ä«µå¸¦ ³õ¾Ò´ÂÁö È®ÀÎ
+        {
+            if(gameManager.mergeCount >= gameManager.maxMergeSize)                  //¸ÓÁö ¿µ¿ªÀÌ °¡µæ Ã¡´ÂÁö È®ÀÎ
+            {
+                Debug.Log("¸ÓÁö ¿µ¿ªÀÌ °¡µæ Ã¡½À´Ï´Ù!");
+                ReturnToOriginalPosition();
+            }
+            else
+            {
+                gameManager.MoveCardToMerge(gameObject);                            //¸ÓÁö ¿µ¿ªÀ¸·Î ÀÌµ¿
+            }
+        }
+        else
+        {
+            ReturnToOriginalPosition();                                             //¾Æ¹« ¿µ¿ªµµ ¾Æ´Ò °æ¿ì¿¡´Â ¿ø·¡ À§Ä¡·Î ÀÌµ¿
+        }
+
+        if(wasInMergeArea)                                                          //¸ÓÁö ¿µ¿ª¿¡ ÀÖÀ» °æ¿ì ¹öÆ° »óÅÂ ¾÷µ¥ÀÌÆ®
+        {
+            if(gameManager.mergeButton != null)
+            {
+                bool canMerge = (gameManager.mergeCount == 2 || gameManager.mergeCount == 3);
+                gameManager.mergeButton.interactable = true;
+            }
+        }
+
+
     }
 
     //¿ø·¡ À§Ä¡·Î µ¹¾Æ°¡´Â ÇÔ¼ö
-    void ReturnToOriginalPosition()
+    void ReturnToOriginalPosition()                                                             //¿ø·¡ À§Ä¡·Î µ¹¾Æ°¡´Â ÇÔ¼ö
     {
         transform.position = startPosition;
         transform.SetParent(startParent);
@@ -59,6 +126,10 @@ public class DragDrop : MonoBehaviour                   //Ä«µå µå·¡±× & µå·Ó Ã³¸
             if(startParent == gameManager.handArea)
             {
                 gameManager.ArrangeHand();
+            }
+            if (startParent == gameManager.mergeArea)
+            {
+                gameManager.ArrangeMerge();
             }
         }
     }
@@ -70,12 +141,22 @@ public class DragDrop : MonoBehaviour                   //Ä«µå µå·¡±× & µå·Ó Ã³¸
             return false;
         }
 
-        //¿µ¿ªÀÇ ÄÝ¶óÀÌ´õ¸¦ °¡Á®¿È
-        Collider2D areaCollider = area.GetComponent<Collider2D>();
-        if (areaCollider == null)
-            return false;
+        Vector3 mousePosition = Camera.main.ScreenToWorldPoint(Input.mousePosition);                //ÇöÀç ¸¶¿ì½º À§Ä¡¸¦ °¡Á®¿À±â
+        mousePosition.z = 0;                                                                        //2DÀÌ±â ¶§¹®
 
-        //Ä«µå°¡ ¿µ¿ª ¾È¿¡ ÀÖ´ÂÁö È®ÀÎ
-        return areaCollider.bounds.Contains(transform.position);
+        RaycastHit2D[] hits = Physics2D.RaycastAll(mousePosition, Vector2.zero);                    //·¹ÀÌÄ³½ºÆ® »ý¼º (¸¶¿ì½º À§Ä¡¿¡¼­ ¾Æ·¡ ¹æÇâÀ¸·Î)
+
+        foreach(RaycastHit2D hit in hits)                                                           //·¹ÀÌÄ³½ºÆ®·Î °¨ÁöµÈ ¸ðµç ÄÝ¶óÀÌ´õ È®ÀÎ
+        {
+            if(hit.collider != null && hit.collider.transform == area)                              //
+            {
+                Debug.Log(area.name + "¿µ¿ª °¨ÁöµÊ");
+                return true;
+            }
+        }
+
+        return false;
     }
 }
+
+
